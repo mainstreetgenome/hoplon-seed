@@ -1,0 +1,103 @@
+;; Copyright (c) Alan Dipert and Micha Niskin. All rights reserved.
+;; The use and distribution terms for this software are covered by the
+;; Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;; which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by
+;; the terms of this license.
+;; You must not remove this notice, or any other, from this software.
+
+(page "index.html"
+  (:require
+    [demo.state.chat             :as c]
+    [clojure.string              :as s]
+    [tailrecursion.hoplon.reload :as r]))
+
+(r/reload-all 25)
+
+(def register?        (cell nil))
+(def reg-link-text    (cell= (if register? "log in" "register")))
+(def toggle-register! #(swap! register? not))
+(def log-reg!         #(if @register? (c/register! %1 %2 %3) (c/login! %1 %2)))
+
+(cell= (print (:trace c/error)))
+
+(c/init)
+
+(html
+  (head
+    (title "chat app")
+    (link :rel "stylesheet" :type "text/css" :href "main.css"))
+  (body
+    (div
+      :id "error"
+      :on-click c/clear-error!
+      :do-slide-toggle c/error
+      (text "~(:message c/error)"))
+
+    (div :id "loading" :do-fade-toggle c/loading? "loading...")
+
+    (div {:id "content"}
+      (div {:id "login-pane" :do-toggle c/show-login?}
+        (form
+          :id "login"
+          :on-submit #(log-reg! (val-id "user") (val-id "pass") (val-id "pass2"))
+          (div
+            (label "Username")
+            (input :type "text" :id "user" :autofocus "autofocus"))
+
+          (div
+            (label "Password")
+            (input :type "password" :id "pass"))
+
+          (div :do-toggle register?
+            (label "Confirm")
+            (input :type "password" :id "pass2"))
+
+          (button :type "submit" "submit")
+
+          (a :href "javascript:void(0)" :on-click toggle-register!
+            (text "~{reg-link-text}"))))
+
+      (div :id "chat-pane" :do-toggle c/show-chat?
+        (h1 (text "hello, ~{c/user}!"))
+
+        (div :id "buddies"
+          (h4 "buddies")
+
+          (ul
+            (loop-tpl :bindings [buddy c/buddies]
+              (li :do-toggle (cell= (not (or (s/blank? buddy) (= c/user buddy))))
+                (span :class "buddy" (text "~{buddy}"))
+
+                (input
+                  :type "checkbox"
+                  :do-value (cell= (contains? c/active-chat buddy))
+                  :on-click #(c/toggle-chat! buddy)))))
+
+          (h4 "chats")
+
+          (ul
+            (loop-tpl :bindings [[conv conv-str] c/loop-convs]
+              (li :do-toggle (cell= (not (s/blank? conv-str)))
+                (a
+                  :href "javascript:void(0)"
+                  :do-class (cell= {:active (= c/active-chat conv)})
+                  :on-click #(c/switch-chat! conv)
+                  (text "~{conv-str}"))))))
+
+        (div :id "chat"
+          (div :id "convo"
+            (ul
+              (loop-tpl :bindings [{from :from msg-text :text} c/msgs]
+                (li :do-toggle (cell= (not (s/blank? from)))
+                  (span :class "from" (text "~{from}"))
+                  (span (text ": ~{msg-text}")))))
+
+            (form {:on-submit #(do (c/send-message! (val-id "chat-message"))
+                                   (do! (by-id "chat-message") :value ""))}
+              (label (text "~{c/user} >"))
+              (input
+                :type "text"
+                :id "chat-message"
+                :do-toggle (cell= (< 0 (count (disj c/active-chat c/user))))
+                :do-focus c/active-chat))))))))

@@ -8,7 +8,7 @@ Based on hoplon-demo/chat
 Install [boot][2]. Then in a terminal:
 
 ```
-$ boot chat-demo
+$ boot development
 ```
 A local Jetty server will be started. Point your browser at
 [http://localhost:8000][3].  Several accounts are seeded: `able`, `baker`, and
